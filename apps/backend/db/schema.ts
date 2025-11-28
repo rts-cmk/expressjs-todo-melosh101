@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { index, int, sqliteTable, text } from "drizzle-orm/sqlite-core"
 import { createSelectSchema, createInsertSchema, createUpdateSchema } from "drizzle-zod"
 
@@ -6,7 +6,8 @@ export const todoTable = sqliteTable("todos", {
   id: int().primaryKey({ autoIncrement: true }),
   title: text().notNull(),
   description: text(),
-  user_id: int().references(() => userTable.id)
+  user_id: int().references(() => userTable.id),
+  is_done: int({ mode: "boolean" }).default(false),
 }, (table) => [
   index("todo_title_idx").on(table.id)
 ])

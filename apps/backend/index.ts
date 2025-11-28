@@ -4,6 +4,7 @@ import todoRouter from "./routes/todo.ts"
 import authRouter from "./routes/auth.ts"
 import session from "express-session"
 import passport from "passport"
+import morgan from "morgan"
 
 const app = express();
 
@@ -17,7 +18,9 @@ if (!SECRET_KEY_BASE) {
 
 app.use(json())
 app.use(urlencoded())
+app.use(morgan("dev"))
 app.use(cors({
+  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
   credentials: true
 }))
 app.use(session({

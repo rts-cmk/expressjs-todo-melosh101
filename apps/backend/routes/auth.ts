@@ -67,12 +67,31 @@ passport.deserializeUser((user, cb) => {
   })
 })
 
-router.post("/login", passport.authenticate("local", {
-  successRedirect: "/",
-  failureRedirect: "/login"
-}))
+router.post("/login", (req, res, next) => {
+  passport.authenticate("local", (err: Error, user: Express.User, info: { message: string }) => {
+    if (err) {
+      return next(err);
+    }
+    if (!user) {
+      return res.status(401).json({ status: 401, message: info.message || "Login failed" });
+    }
+    req.logIn(user, (err) => {
+      if (err) {
+        return next(err);
+      }
+      return res.json({
+        status: 200,
+        message: "Login successful",
+        user: {
+          id: user.id,
+          username: user.username
+        }
+      });
+    });
+  })(req, res, next);
+});
 
-router.post("/register", async (req, res) => {
+router.post("/register", async (req, res, next) => {
   const data = userRegisterSchema.safeParse(req.body);
 
   if (!data.success) {
@@ -84,31 +103,54 @@ router.post("/register", async (req, res) => {
     });
   }
 
-  const user = await db.query.userTable.findFirst({
-    where: eq(userTable.username, data.data.username)
-  })
-
-  if (user) {
-    return res.json({
-      status: 200,
-      message: "username already taken"
+  try {
+    const user = await db.query.userTable.findFirst({
+      where: eq(userTable.username, data.data.username)
     })
-  }
 
-  const pwdHash = await argon2.hash(data.data.password, argonOptions);
-  const newUser = await db.insert(userTable).values({
-    ...data.data,
-    password: pwdHash
-  }).returning();
+    if (user) {
+      return res.status(409).json({
+        status: 409,
+        message: "username already taken"
+      })
+    }
 
-  if (!newUser || !newUser[0]) {
-    throw new Error("failed to create new user")
+    const pwdHash = await argon2.hash(data.data.password, argonOptions);
+    const newUser = await db.insert(userTable).values({
+      ...data.data,
+      password: pwdHash
+    }).returning();
+
+    if (!newUser || !newUser[0]) {
+      throw new Error("failed to create new user")
+    }
+    
+    req.login(newUser[0], (err) => {
+      if (err) return next(err);
+      return res.status(201).json({
+        status: 201,
+        message: "Registration successful",
+        user: {
+          id: newUser[0].id,
+          username: newUser[0].username
+        }
+      });
+    })
+  } catch (e) {
+    next(e);
   }
-  req.login(newUser[0], (err) => {
-    if (err) throw new Error(err)
-  })
-  res.redirect("/login")
 })
 
+router.get("/me", (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ status: 401, message: "Unauthorized" });
+  }
+  
+  const user = req.user as Express.User;
+  return res.json({
+    id: user.id,
+    username: user.username
+  });
+})
 
 export default router;
