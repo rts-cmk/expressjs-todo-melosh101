@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/bun-sqlite"
+import { drizzle } from "drizzle-orm/libsql"
 import * as schema from "./schema.ts"
 
 
